@@ -328,6 +328,7 @@ export const context = {
 }
 
 export const setMRBody = async () => {
+  console.log('context', context)
   const pr = await octokit.pulls.get({
     pull_number: context.payload.pull_request.number
   })
