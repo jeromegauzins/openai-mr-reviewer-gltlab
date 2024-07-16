@@ -15,6 +15,7 @@ export const getMultilineInput = (key: string) => {
   return process.env[key]?.split('\n')
 }
 
+// todo swap for pino for better logging of nested objects
 export const setFailed = console.log
 export const info = console.log
 export const warning = console.warn

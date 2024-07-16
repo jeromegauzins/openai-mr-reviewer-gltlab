@@ -1,91 +1,74 @@
 import {info, setFailed, warning} from './gitlab-core'
-import {
-  ChatGPTAPI,
-  ChatGPTError,
-  ChatMessage,
-  SendMessageOptions
-  // eslint-disable-next-line import/no-unresolved
-} from 'chatgpt'
-import pRetry from 'p-retry'
 import {OpenAIOptions, Options} from './options'
 
-// define type to save parentMessageId and conversationId
-export interface Ids {
-  parentMessageId?: string
-  conversationId?: string
-}
+import {createOpenAI, openai, OpenAIProvider} from '@ai-sdk/openai'
+import {generateText, GenerateTextResult} from 'ai'
 
 export class Bot {
-  private readonly api: ChatGPTAPI | null = null // not free
+  private readonly aiProvider: OpenAIProvider | null = null // not free
+  private readonly model: ReturnType<typeof openai> | null = null
 
   private readonly options: Options
 
   constructor(options: Options, openaiOptions: OpenAIOptions) {
     this.options = options
+
     if (process.env.OPENAI_API_KEY) {
       const currentDate = new Date().toISOString().split('T')[0]
-      const systemMessage = `${options.systemMessage} 
+      const systemMessage = `${options.systemMessage}
 Knowledge cutoff: ${openaiOptions.tokenLimits.knowledgeCutOff}
 Current date: ${currentDate}`
 
-      this.api = new ChatGPTAPI({
-        apiBaseUrl: options.apiBaseUrl,
-        systemMessage,
+      this.aiProvider = createOpenAI({
         apiKey: process.env.OPENAI_API_KEY,
-        apiOrg: process.env.OPENAI_API_ORG ?? undefined,
-        debug: options.debug,
-        maxModelTokens: openaiOptions.tokenLimits.maxTokens,
-        maxResponseTokens: openaiOptions.tokenLimits.responseTokens,
-        completionParams: {
-          temperature: options.openaiModelTemperature,
-          model: openaiOptions.model
-        }
+        organization: process.env.OPENAI_API_ORG ?? undefined,
+        baseURL: options.apiBaseUrl,
+        compatibility: 'strict' // strict mode, enable when using the OpenAI API
       })
+
+      this.model = openai('gpt-4o', {user: process.env.CI_COMMIT_AUTHOR})
     } else {
       const err =
-        "Unable to initialize the OpenAI API, both 'OPENAI_API_KEY' environment variable are not available"
+        "Unable to initialize the OpenAI API, 'OPENAI_API_KEY' environment variable are not available"
       throw new Error(err)
     }
   }
 
-  chat = async (message: string, ids: Ids): Promise<[string, Ids]> => {
-    let res: [string, Ids] = ['', {}]
+  chat = async (message: string): Promise<string> => {
+    let res = ''
     try {
-      res = await this.chat_(message, ids)
+      res = await this.chat_(message)
       return res
     } catch (e: unknown) {
-      if (e instanceof ChatGPTError) {
+      if (e instanceof Error) {
         warning(`Failed to chat: ${e}, backtrace: ${e.stack}`)
       }
       return res
     }
   }
 
-  private readonly chat_ = async (
-    message: string,
-    ids: Ids
-  ): Promise<[string, Ids]> => {
+  private readonly chat_ = async (message: string): Promise<string> => {
     // record timing
     const start = Date.now()
     if (!message) {
-      return ['', {}]
+      return ''
     }
 
-    let response: ChatMessage | undefined
-
-    if (this.api != null) {
-      const opts: SendMessageOptions = {
-        timeoutMs: this.options.openaiTimeoutMS
-      }
-      if (ids.parentMessageId) {
-        opts.parentMessageId = ids.parentMessageId
-      }
+    let response: GenerateTextResult<any> | undefined
+    if (!this.aiProvider || !this.model) {
+      setFailed('The OpenAI API is not initialized')
+    } else {
       try {
-        response = await pRetry(() => this.api!.sendMessage(message, opts), {
-          retries: this.options.openaiRetries
+        response = await generateText({
+          maxRetries: this.options.openaiRetries,
+
+          // TODO: timeout
+          prompt: message,
+          system: this.options.systemMessage,
+          model: this.model
         })
       } catch (e: unknown) {
-        if (e instanceof ChatGPTError) {
+        if (e instanceof Error) {
           info(
             `response: ${response}, failed to send message to openai: ${e}, backtrace: ${e.stack}`
           )
@@ -98,9 +81,8 @@ Current date: ${currentDate}`
           end - start
         } ms`
       )
-    } else {
-      setFailed('The OpenAI API is not initialized')
     }
+
     let responseText = ''
     if (response != null) {
       responseText = response.text
@@ -114,10 +96,6 @@ Current date: ${currentDate}`
     if (this.options.debug) {
       info(`openai responses: ${responseText}`)
     }
-    const newIds: Ids = {
-      parentMessageId: response?.id,
-      conversationId: response?.conversationId
-    }
-    return [responseText, newIds]
+    return responseText
   }
 }

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import {error, info, warning} from './gitlab-core'
 // eslint-disable-next-line camelcase
-import {context as github_context} from './gitlab-adapter'
+import {context} from './gitlab-adapter'
 import pLimit from 'p-limit'
 import {type Bot} from './bot'
 import {
@@ -19,8 +19,6 @@ import {type Options} from './options'
 import {type Prompts} from './prompts'
 import {getTokenCount} from './tokenizer'
 
-// eslint-disable-next-line camelcase
-const context = github_context
 const repo = context.repo
 
 const ignoreKeyword = '@openai: ignore'
@@ -282,7 +280,7 @@ ${hunks.oldHunk}
 
     // summarize content
     try {
-      const [summarizeResp] = await lightBot.chat(
+      const summarizeResp = await lightBot.chat(
         prompts.renderSummarizeFileDiff(ins, options.reviewSimpleChanges),
         {}
       )
@@ -348,7 +346,7 @@ ${filename}: ${summary}
 `
       }
       // ask chatgpt to summarize the summaries
-      const [summarizeResp] = await heavyBot.chat(
+      const summarizeResp = await heavyBot.chat(
         prompts.renderSummarizeChangesets(inputs),
         {}
       )
@@ -361,7 +359,7 @@ ${filename}: ${summary}
   }
 
   // final summary
-  const [summarizeFinalResponse] = await heavyBot.chat(
+  const summarizeFinalResponse = await heavyBot.chat(
     prompts.renderSummarize(inputs),
     {}
   )
@@ -371,7 +369,7 @@ ${filename}: ${summary}
 
   if (options.disableReleaseNotes === false) {
     // final release notes
-    const [releaseNotesResponse] = await heavyBot.chat(
+    const releaseNotesResponse = await heavyBot.chat(
       prompts.renderSummarizeReleaseNotes(inputs),
       {}
     )
@@ -392,7 +390,7 @@ ${filename}: ${summary}
   }
 
   // generate a short summary as well
-  const [summarizeShortResponse] = await heavyBot.chat(
+  const summarizeShortResponse = await heavyBot.chat(
     prompts.renderSummarizeShort(inputs),
     {}
   )
@@ -412,7 +410,7 @@ ${SHORT_SUMMARY_END_TAG}
 - Invite the bot into a review comment chain by tagging \`@openai\` in a reply.
 -->
 ### Code suggestions
-- The bot may make code suggestions, but please review them carefully before committing since the line number ranges may be misaligned. 
+- The bot may make code suggestions, but please review them carefully before committing since the line number ranges may be misaligned.
 - You can edit the comment made by the bot and manually tweak the suggestion if it is slightly off.
 
 ### Ignoring further reviews
@@ -584,7 +582,7 @@ ${commentChain}
 
       // perform review
       try {
-        const [response] = await heavyBot.chat(
+        const response = await heavyBot.chat(
           prompts.renderReviewFileDiff(ins),
           {}
         )
