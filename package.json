@@ -1,5 +1,5 @@
 {
-  "name": "openai-pr-reviewer",
+  "name": "openai-mr-reviewer",
   "version": "1.0.0",
   "private": true,
   "description": "OpenAI-based Gitlab MR Reviewer and Summarizer.",
@@ -7,21 +7,20 @@
   "packageManager": "yarn@4.3.0",
   "scripts": {
     "build": "cp node_modules/@dqbd/tiktoken/tiktoken_bg.wasm dist/tiktoken_bg.wasm && tsc",
-    "package": "ncc build --license licenses.txt",
     "act": "yarn run build && yarn run package && ./bin/act pull_request_target --secret-file .secrets",
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
     "test": "jest",
     "all": "yarn run build && yarn run format && yarn run lint && yarn run package && yarn test",
-    "package-gitlab": "rm -rf ./dist && mkdir dist && cp -v node_modules/@dqbd/tiktoken/tiktoken_bg.wasm dist/tiktoken_bg.wasm && ncc build ./src/gitlab-main.ts -s --no-source-map-register -o dist && mv dist/index.js dist/index.cjs && tar -czvf ./dist/dist.tar.gz dist/*"
+    "package": "rm -rf ./dist && mkdir dist && cp -v node_modules/@dqbd/tiktoken/tiktoken_bg.wasm dist/tiktoken_bg.wasm && ncc build ./src/gitlab-main.ts -s --no-source-map-register -o dist && mv dist/index.js dist/index.cjs && tar -czvf ./dist/dist.tar.gz dist/*"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marko154/openai-mr-reviewer-gltlab.git"
   },
   "keywords": [
-    "actions",
+    "gitlab",
     "node",
     "setup"
   ],
