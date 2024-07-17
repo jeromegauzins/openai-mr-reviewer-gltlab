@@ -4,12 +4,13 @@ import {
   getMultilineInput,
   setFailed,
   warning
-} from '@actions/core'
+} from './gitlab-core'
+import {setMRBody} from './gitlab-client'
 import {Bot} from './bot'
 import {OpenAIOptions, Options} from './options'
 import {Prompts} from './prompts'
 import {codeReview} from './review'
-import {handleReviewComment} from './review-comment'
+// import {handleReviewComment} from './review-comment'
 
 async function run(): Promise<void> {
   const options: Options = new Options(
@@ -69,16 +70,21 @@ async function run(): Promise<void> {
   try {
     // check if the event is pull_request
     if (
-      process.env.GITHUB_EVENT_NAME === 'pull_request' ||
-      process.env.GITHUB_EVENT_NAME === 'pull_request_target'
+      true
+      // process.env.GITHUB_EVENT_NAME === 'pull_request' ||
+      // process.env.GITHUB_EVENT_NAME === 'pull_request_target'
     ) {
+      await setMRBody()
       await codeReview(lightBot, heavyBot, options, prompts)
     } else if (
       process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment'
     ) {
-      await handleReviewComment(heavyBot, options, prompts)
+      // await handleReviewComment(heavyBot, options, prompts)
     } else {
-      warning('Skipped: this action only works on push events or pull_request')
+      warning(
+        // TODO specify the event name for Gitlab
+        'Skipped: this action only works on merge request creation and push to the MR branch'
+      )
     }
   } catch (e: any) {
     if (e instanceof Error) {
@@ -97,4 +103,4 @@ process
     warning(`Uncaught Exception thrown: ${e}, backtrace: ${e.stack}`)
   })
 
-await run()
+run()

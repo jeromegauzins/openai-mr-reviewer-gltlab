@@ -3,27 +3,28 @@
 ## Overview
 
 This [OpenAI ChatGPT-based](https://platform.openai.com/docs/guides/chat) GitLab
-Pipeline Application provides a summary, release notes and review of pull
+Pipeline Application provides a summary, release notes and review of merge
 requests. The unique features of this action are:
 
 - **Line-by-line code change suggestions**: This Application reviews the changes
   line by line and provides code change suggestions that can be directly
   committed from the GitLab UI.
-- **Continuous, incremental reviews**: Reviews are performed on each commit within a
-  pull request, rather than a one-time review on the entire pull request.
-- **Cost-effective and reduced noise**: Incremental reviews save on OpenAI costs and
-  reduce noise by tracking changed files between commits and the base of the
-  pull request.
-- **"Light" model for summary**: Designed to be used with a "light" summarization
-  model (e.g. `gpt-3.5-turbo`) and a "heavy" review model (e.g. `gpt-4`). For
-  best results, use `gpt-4` as the "heavy" model, as thorough code review needs
-  strong reasoning abilities.
+- **Continuous, incremental reviews**: Reviews are performed on each commit
+  within a merge request, rather than a one-time review on the entire merge
+  request.
+- **Cost-effective and reduced noise**: Incremental reviews save on OpenAI costs
+  and reduce noise by tracking changed files between commits and the base of the
+  merge request.
+- **"Light" model for summary**: Designed to be used with a "light"
+  summarization model (e.g. `gpt-3.5-turbo`) and a "heavy" review model (e.g.
+  `gpt-4`). For best results, use `gpt-4` as the "heavy" model, as thorough code
+  review needs strong reasoning abilities.
 - **[Not support yet]** Chat with bot: Supports conversation with the bot in the
   context of lines of code or entire files, useful for providing context,
   generating test cases, and reducing code complexity.
-- **Smart review skipping**: By default, skips in-depth review for simple changes
-  (e.g. typo fixes) and when changes look good for the most part. It can be
-  disabled by setting `review_simple_changes` and `review_comment_lgtm` to
+- **Smart review skipping**: By default, skips in-depth review for simple
+  changes (e.g. typo fixes) and when changes look good for the most part. It can
+  be disabled by setting `review_simple_changes` and `review_comment_lgtm` to
   `true`.
 - **Customizable prompts**: Tailor the `system_message`, `summarize`, and
   `summarize_release_notes` prompts to focus on specific aspects of the review
@@ -66,8 +67,6 @@ default:
 variables:
   GITLAB_HOST:
     value: 'https://www.gitlab.com'
-  GITHUB_EVENT_NAME:
-    value: 'pull_request'
   debug:
     description: 'Enable debug mode'
     value: 'false'
@@ -144,8 +143,8 @@ variables:
   system_message:
     description: 'System message to be sent to OpenAI'
     value: |
-      You are `@openai` (aka `github-actions[bot]`), a language model 
-      trained by OpenAI. Your purpose is to act as a highly experienced 
+      You are `@openai` (aka `gitlab-actions[bot]`), a language model
+      trained by OpenAI. Your purpose is to act as a highly experienced
       software engineer and provide a thorough review of the code hunks
       and suggest code snippets to improve key areas such as:
         - Logic
@@ -159,10 +158,10 @@ variables:
         - Complexity
         - Optimization
 
-      Refrain from commenting on minor code style issues, missing 
-      comments/documentation, or giving compliments, unless explicitly 
-      requested. Concentrate on identifying and resolving significant 
-      concerns to improve overall code quality while deliberately 
+      Refrain from commenting on minor code style issues, missing
+      comments/documentation, or giving compliments, unless explicitly
+      requested. Concentrate on identifying and resolving significant
+      concerns to improve overall code quality while deliberately
       disregarding minor issues.
 
       Note: As your knowledge may be outdated, trust the user code when newer
@@ -170,30 +169,30 @@ variables:
   summarize:
     description: 'The prompt for final summarization response'
     value: |
-      Provide your final response in the `markdown` format with 
+      Provide your final response in the `markdown` format with
       the following content:
-        - High-level summary (comment on the overall change instead of 
+        - High-level summary (comment on the overall change instead of
           specific files within 80 words)
-        - Table of files and their summaries. You can group files with 
+        - Table of files and their summaries. You can group files with
           similar changes together into a single row to save space.
 
-      Avoid additional commentary as this summary will be added as a 
-      comment on the GitHub pull request.
+      Avoid additional commentary as this summary will be added as a
+      comment on the Gitlab merge request.
   summarize_release_notes:
     description:
       'The prompt for generating release notes in the same chat as summarize
       stage'
     value: |
-      Create concise release notes in `markdown` format for this pull request, 
-      focusing on its purpose and user story. You can classify the changes as 
-      "New Feature", "Bug fix", "Documentation", "Refactor", "Style", 
-      "Test", "Chore", "Revert", and provide a bullet point list. For example: 
-      "New Feature: An integrations page was added to the UI". Keep your 
-      response within 50-100 words. Avoid additional commentary as this response 
+      Create concise release notes in `markdown` format for this merge request,
+      focusing on its purpose and user story. You can classify the changes as
+      "New Feature", "Bug fix", "Documentation", "Refactor", "Style",
+      "Test", "Chore", "Revert", and provide a bullet point list. For example:
+      "New Feature: An integrations page was added to the UI". Keep your
+      response within 50-100 words. Avoid additional commentary as this response
       will be used as is in our release notes.
 
-      Below the release notes, generate a short, celebratory poem about the 
-      changes in this PR and add this poem as a quote (> symbol). You can 
+      Below the release notes, generate a short, celebratory poem about the
+      changes in this MR and add this poem as a quote (> symbol). You can
       use emojis in the poem, where they are relevant.
 
 stages:
@@ -202,7 +201,9 @@ stages:
 review-job: # This job runs in the review stage, which runs first.
   stage: review
   script:
-    - curl -o dist.tar.gz https://github.com/maybeLab/openai-mr-reviewer-gltlab/releases/download/v1.0.0/dist.tar.gz && tar -vxzf dist.tar.gz && node dist/index.cjs
+    - curl -o dist.tar.gz
+      https://github.com/marko154/openai-mr-reviewer-gltlab/releases/download/v1.0.0/dist.tar.gz
+      && tar -vxzf dist.tar.gz && node dist/index.cjs
     - echo "review complete."
     - rm -rf ./dist ./dist.tar.gz
   only:

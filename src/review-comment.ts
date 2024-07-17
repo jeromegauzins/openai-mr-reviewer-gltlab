@@ -154,7 +154,7 @@ export const handleReviewComment = async (
         }
       }
 
-      // get summary of the PR
+      // get summary of the MR
       const summary = await commenter.findCommentWithTag(
         SUMMARIZE_TAG,
         pullNumber

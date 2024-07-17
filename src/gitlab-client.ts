@@ -1,7 +1,3 @@
-/* eslint-disable eslint-comments/no-use */
-/* eslint-disable eslint-comments/no-unlimited-disable */
-/* eslint-disable */
-
 import gitlabENV from 'gitlab-ci-env'
 import type {MergeRequestDiscussionNotePositionOptions} from '@gitbeaker/rest'
 import {Gitlab} from '@gitbeaker/rest'
@@ -9,6 +5,7 @@ import {Gitlab} from '@gitbeaker/rest'
 const api = new Gitlab({
   host: process.env.GITLAB_HOST,
   token: process.env.GITLAB_PERSONAL_TOKEN || ''
+  // TODO: rate limits
 })
 
 interface DiscussionNotePositionBaseSchema extends Record<string, unknown> {
@@ -60,7 +57,7 @@ interface IUpdateComment extends IBaseParams {
 }
 
 interface ICreateReviewComment extends IBaseParams {
-  pull_number: number
+  mr_number: number
   commit_id: string
   body: string
   path: string
@@ -69,7 +66,7 @@ interface ICreateReviewComment extends IBaseParams {
   start_line?: number
 }
 
-export const octokit = {
+export const gitlabClient = {
   repos: {
     async compareCommits({base, head}: ICompare & IBaseParams) {
       const res = await api.Repositories.compare(
@@ -102,11 +99,11 @@ export const octokit = {
       }
     }
   },
-  pulls: {
-    async get({pull_number}: IBaseParams & {pull_number: number}) {
+  mergeRequests: {
+    async get({mr_number}: IBaseParams & {mr_number: number}) {
       const res = await api.MergeRequests.show(
         gitlabENV.ci.project.id,
-        pull_number
+        mr_number
       )
       return {
         data: {
@@ -116,13 +113,13 @@ export const octokit = {
       }
     },
     async update({
-      pull_number,
+      mr_number,
       body
-    }: IBaseParams & {pull_number: number; body: string}) {
+    }: IBaseParams & {mr_number: number; body: string}) {
       console.log('update desc:', body)
       const res = await api.MergeRequests.edit(
         gitlabENV.ci.project.id,
-        pull_number,
+        mr_number,
         {description: body}
       )
       return {
@@ -133,7 +130,7 @@ export const octokit = {
       console.log('update ReviewComment:', body)
       const res = await api.MergeRequestNotes.edit(
         gitlabENV.ci.project.id,
-        context.payload.pull_request.number,
+        context.payload.merge_request.number,
         comment_id,
         {body}
       )
@@ -143,7 +140,7 @@ export const octokit = {
     },
     // use for create file changes comment
     async createReviewComment({
-      pull_number,
+      mr_number,
       commit_id,
       body,
       path,
@@ -165,9 +162,9 @@ export const octokit = {
         {
           position: Object.assign(
             {
-              baseSha: context.payload.pull_request.base.sha,
-              startSha: context.payload.pull_request.base.sha,
-              headSha: context.payload.pull_request.head.sha,
+              baseSha: context.payload.merge_request.base.sha,
+              startSha: context.payload.merge_request.base.sha,
+              headSha: context.payload.merge_request.head.sha,
               positionType: 'text',
               newLine: end_line.toString(),
               newPath: path.toString()
@@ -192,7 +189,7 @@ export const octokit = {
       console.log('createReviewComment:', content)
       const res = await api.MergeRequestDiscussions.create(
         gitlabENV.ci.project.id,
-        pull_number,
+        mr_number,
         content,
         opts
       )
@@ -203,13 +200,13 @@ export const octokit = {
       return {}
     },
     async listReviewComments({
-      pull_number,
+      mr_number,
       page,
       per_page
-    }: IPageParams & {pull_number: number}) {
+    }: IPageParams & {mr_number: number}) {
       const res = await api.MergeRequestDiscussions.all(
         gitlabENV.ci.project.id,
-        pull_number,
+        mr_number,
         {page, perPage: per_page}
       )
       const data: any[] = []
@@ -268,7 +265,7 @@ export const octokit = {
       console.log('issue.updateComment:', body)
       const res = await api.MergeRequestNotes.edit(
         gitlabENV.ci.project.id,
-        context.payload.pull_request.number,
+        context.payload.merge_request.number,
         comment_id,
         {body}
       )
@@ -282,8 +279,8 @@ export const octokit = {
       per_page
     }: IPageParams & {issue_number: number}) {
       // this notes will include all notes
-      return octokit.pulls.listReviewComments({
-        pull_number: issue_number,
+      return gitlabClient.mergeRequests.listReviewComments({
+        mr_number: issue_number,
         per_page,
         page
       })
@@ -292,7 +289,7 @@ export const octokit = {
 }
 
 export const context = {
-  eventName: process.env.GITHUB_EVENT_NAME,
+  // eventName: process.env.GITHUB_EVENT_NAME,
   repo: {
     // @ts-ignore
     owner: gitlabENV.ci.project.path?.match(/^(.+)\/([^/]+)$/)[1],
@@ -307,7 +304,7 @@ export const context = {
         login: gitlabENV.ci.project.rootNamespace // TODO: it's may be wrong for name
       }
     },
-    pull_request: {
+    merge_request: {
       title: gitlabENV.ci.mergeRequest.title,
       number: parseInt(gitlabENV.ci.mergeRequest.iid, 10),
       body: null as null | string,
@@ -328,11 +325,10 @@ export const context = {
 }
 
 export const setMRBody = async () => {
-  console.log('context', context)
-  const pr = await octokit.pulls.get({
-    pull_number: context.payload.pull_request.number
+  const mergeRequest = await gitlabClient.mergeRequests.get({
+    mr_number: context.payload.merge_request.number
   })
-  if (pr.data.body) {
-    context.payload.pull_request.body = pr.data.body
+  if (mergeRequest.data.body) {
+    context.payload.merge_request.body = mergeRequest.data.body
   }
 }

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import {error, info, warning} from './gitlab-core'
 // eslint-disable-next-line camelcase
-import {context} from './gitlab-adapter'
+import {context} from './gitlab-client'
 import pLimit from 'p-limit'
 import {type Bot} from './bot'
 import {
@@ -14,7 +14,7 @@ import {
   SUMMARIZE_TAG
 } from './commenter'
 import {Inputs} from './inputs'
-import {octokit} from './gitlab-adapter'
+import {gitlabClient} from './gitlab-client'
 import {type Options} from './options'
 import {type Prompts} from './prompts'
 import {getTokenCount} from './tokenizer'
@@ -42,16 +42,16 @@ export const codeReview = async (
     )
     return
   }
-  if (context.payload.pull_request == null) {
+  if (context.payload.merge_request == null) {
     warning('Skipped: context.payload.pull_request is null')
     return
   }
 
   const inputs: Inputs = new Inputs()
-  inputs.title = context.payload.pull_request.title
-  if (context.payload.pull_request.body != null) {
+  inputs.title = context.payload.merge_request.title
+  if (context.payload.merge_request.body != null) {
     inputs.description = commenter.getDescription(
-      context.payload.pull_request.body
+      context.payload.merge_request.body
     )
   }
 
@@ -61,13 +61,14 @@ export const codeReview = async (
     return
   }
 
+  // TODO: not using gpt-3.5 anymore, so remove this
   // as gpt-3.5-turbo isn't paying attention to system message, add to inputs for now
   inputs.systemMessage = options.systemMessage
 
   // get SUMMARIZE_TAG message
   const existingSummarizeCmt = await commenter.findCommentWithTag(
     SUMMARIZE_TAG,
-    context.payload.pull_request.number
+    context.payload.merge_request.number
   )
   let existingCommitIdsBlock = ''
   if (existingSummarizeCmt != null) {
@@ -90,32 +91,32 @@ export const codeReview = async (
 
   if (
     highestReviewedCommitId === '' ||
-    highestReviewedCommitId === context.payload.pull_request.head.sha
+    highestReviewedCommitId === context.payload.merge_request.head.sha
   ) {
     info(
       `Will review from the base commit: ${
-        context.payload.pull_request.base.sha as string
+        context.payload.merge_request.base.sha as string
       }`
     )
-    highestReviewedCommitId = context.payload.pull_request.base.sha
+    highestReviewedCommitId = context.payload.merge_request.base.sha
   } else {
     info(`Will review from commit: ${highestReviewedCommitId}`)
   }
 
-  // Fetch the diff between the highest reviewed commit and the latest commit of the PR branch
-  const incrementalDiff = await octokit.repos.compareCommits({
+  // Fetch the diff between the highest reviewed commit and the latest commit of the MR branch
+  const incrementalDiff = await gitlabClient.repos.compareCommits({
     owner: repo.owner,
     repo: repo.repo,
     base: highestReviewedCommitId,
-    head: context.payload.pull_request.head.sha
+    head: context.payload.merge_request.head.sha
   })
 
-  // Fetch the diff between the target branch's base commit and the latest commit of the PR branch
-  const targetBranchDiff = await octokit.repos.compareCommits({
+  // Fetch the diff between the target branch's base commit and the latest commit of the MR branch
+  const targetBranchDiff = await gitlabClient.repos.compareCommits({
     owner: repo.owner,
     repo: repo.repo,
-    base: context.payload.pull_request.base.sha,
-    head: context.payload.pull_request.head.sha
+    base: context.payload.merge_request.base.sha,
+    head: context.payload.merge_request.head.sha
   })
 
   const incrementalFiles = incrementalDiff.data.files
@@ -164,16 +165,16 @@ export const codeReview = async (
     filterSelectedFiles.map(async file => {
       // retrieve file contents
       let fileContent = ''
-      if (context.payload.pull_request == null) {
+      if (context.payload.merge_request == null) {
         warning('Skipped: context.payload.pull_request is null')
         return null
       }
       try {
-        const contents = await octokit.repos.getContent({
+        const contents = await gitlabClient.repos.getContent({
           owner: repo.owner,
           repo: repo.repo,
           path: file.filename,
-          ref: context.payload.pull_request.base.sha
+          ref: context.payload.merge_request.base.sha
         })
         if (contents.data != null) {
           if (!Array.isArray(contents.data)) {
@@ -380,11 +381,11 @@ ${filename}: ${summary}
       message += releaseNotesResponse
       try {
         await commenter.updateDescription(
-          context.payload.pull_request.number,
+          context.payload.merge_request.number,
           message
         )
       } catch (e: any) {
-        warning(`release notes: error from github: ${e.message as string}`)
+        warning(`release notes: error from Gitlab: ${e.message as string}`)
       }
     }
   }
@@ -414,7 +415,7 @@ ${SHORT_SUMMARY_END_TAG}
 - You can edit the comment made by the bot and manually tweak the suggestion if it is slightly off.
 
 ### Ignoring further reviews
-- Type \`@openai: ignore\` anywhere in the PR description to ignore further reviews from the bot.
+- Type \`@openai: ignore\` anywhere in the MR description to ignore further reviews from the bot.
 
 ---
 
@@ -515,7 +516,7 @@ ${
 
       let patchesPacked = 0
       for (const [startLine, endLine, patch] of patches) {
-        if (context.payload.pull_request == null) {
+        if (context.payload.merge_request == null) {
           warning('No pull request found, skipping.')
           continue
         }
@@ -534,7 +535,7 @@ ${
         let commentChain = ''
         try {
           const allChains = await commenter.getCommentChainsWithinRange(
-            context.payload.pull_request.number,
+            context.payload.merge_request.number,
             filename,
             startLine,
             endLine,
@@ -602,7 +603,7 @@ ${commentChain}
           ) {
             continue
           }
-          if (context.payload.pull_request == null) {
+          if (context.payload.merge_request == null) {
             warning('No pull request found, skipping.')
             continue
           }
@@ -645,8 +646,8 @@ ${commentChain}
 
     summarizeComment += `
 ---
-In the recent run, only the files that changed from the \`base\` of the PR and between \`${highestReviewedCommitId}\` and \`${
-      context.payload.pull_request.head.sha
+In the recent run, only the files that changed from the \`base\` of the MR and between \`${highestReviewedCommitId}\` and \`${
+      context.payload.merge_request.head.sha
     }\` commits were reviewed.
 
 ${
@@ -684,7 +685,7 @@ ${
     // add existing_comment_ids_block with latest head sha
     summarizeComment += `\n${commenter.addReviewedCommitId(
       existingCommitIdsBlock,
-      context.payload.pull_request.head.sha
+      context.payload.merge_request.head.sha
     )}`
   }
 
@@ -693,7 +694,7 @@ ${
 
   // post the review
   await commenter.submitReview(
-    context.payload.pull_request.number,
+    context.payload.merge_request.number,
     commits[commits.length - 1].sha
   )
 }
