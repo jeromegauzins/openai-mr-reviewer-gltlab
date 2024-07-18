@@ -34,8 +34,10 @@ export const codeReview = async (
   const openaiConcurrencyLimit = pLimit(options.openaiConcurrencyLimit)
 
   if (
-    context.eventName !== 'pull_request' &&
-    context.eventName !== 'pull_request_target'
+    // TODO: fix this when implementing gitlab events
+    false
+    // context.eventName !== 'pull_request' &&
+    // context.eventName !== 'pull_request_target'
   ) {
     warning(
       `Skipped: current event is ${context.eventName}, only support pull_request event`
