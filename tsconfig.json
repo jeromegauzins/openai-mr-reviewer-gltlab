@@ -10,10 +10,15 @@
     "target": "ESNext",
     "module": "ESNext",
     "outDir": "./lib",
-    "rootDir": "./src",
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true
   },
-  "exclude": ["dist", "lib", "node_modules", "**/*.test.ts"]
+  "exclude": [
+    "dist",
+    "lib",
+    "node_modules",
+    "**/*.test.ts",
+    "**/review-comment.ts", // TODO: remove this when implementing the gitlab version
+  ]
 }
