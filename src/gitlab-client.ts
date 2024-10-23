@@ -167,6 +167,7 @@ export const gitlabClient = {
               headSha: context.payload.merge_request.head.sha,
               positionType: 'text',
               newLine: end_line.toString(),
+              oldPath: path.toString(),
               newPath: path.toString()
             } as MergeRequestDiscussionNotePositionOptions,
             start_line
